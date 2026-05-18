@@ -70,9 +70,13 @@
     <h2><span class="step">1</span> Camera</h2>
 
     <div class="field-row">
-      <select id="camera-select" onchange="onCameraChange()">
-        <option value="">Loading cameras...</option>
-      </select>
+      <div class="cam-select-wrap" id="camera-select-wrap">
+        <button type="button" class="cam-select-btn" id="camera-select-btn" onclick="toggleCamDropdown(event)">
+          <span id="camera-select-label">Loading cameras…</span>
+          <span class="cam-select-arrow">▾</span>
+        </button>
+        <div class="cam-select-list" id="camera-select-list"></div>
+      </div>
       <button class="btn-small" onclick="loadCameras()" title="Refresh camera list">↻</button>
     </div>
 

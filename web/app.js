@@ -76,29 +76,76 @@ function setIndicator(id, ok, label) {
 }
 
 // ── Cameras ───────────────────────────────────────────────────────────────────
+function _setCamLabel(text) {
+  document.getElementById('camera-select-label').textContent = text;
+}
+
+function toggleCamDropdown(e) {
+  e.stopPropagation();
+  const list = document.getElementById('camera-select-list');
+  const btn  = document.getElementById('camera-select-btn');
+  const open = list.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('camera-select-list').classList.remove('open');
+  document.getElementById('camera-select-btn').classList.remove('open');
+});
+
+function _selectCamera(id, name) {
+  document.getElementById('camera-select-list').querySelectorAll('.cam-select-opt')
+    .forEach(o => o.classList.toggle('selected', o.dataset.id === id));
+  _setCamLabel(name || '— select camera —');
+  document.getElementById('camera-select-list').classList.remove('open');
+  document.getElementById('camera-select-btn').classList.remove('open');
+  state.selectedCamera = id || null;
+  if (id) {
+    document.getElementById('stream-img').alt = '';
+    startStream();
+    if (_videoMode === 'recorded') loadBookmarks();
+  } else {
+    stopStream();
+    const img = document.getElementById('stream-img');
+    img.removeAttribute('src');
+    img.style.display = 'none';
+    document.getElementById('stream-hint').style.display = '';
+    document.getElementById('bookmark-select').innerHTML = '<option value="">— select a bookmark —</option>';
+  }
+  updateCaptureButton();
+  updateDeployBtn();
+}
+
 async function loadCameras() {
-  const sel = document.getElementById('camera-select');
-  sel.innerHTML = '<option value="">Loading...</option>';
+  _setCamLabel('Loading…');
   try {
     const cameras = await apiFetch('/api/cameras');
     state.cameras = cameras;
-    sel.innerHTML = '<option value="">— select camera —</option>';
+    const list = document.getElementById('camera-select-list');
+    list.innerHTML = '';
+    const placeholder = document.createElement('div');
+    placeholder.className = 'cam-select-opt';
+    placeholder.textContent = '— select camera —';
+    placeholder.onclick = (e) => { e.stopPropagation(); _selectCamera('', '— select camera —'); };
+    list.appendChild(placeholder);
     cameras.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.id;
+      const o = document.createElement('div');
+      o.className = 'cam-select-opt';
+      o.dataset.id = c.id;
       o.textContent = c.name || c.id;
-      sel.appendChild(o);
+      o.onclick = (e) => { e.stopPropagation(); _selectCamera(c.id, c.name || c.id); };
+      list.appendChild(o);
     });
+    _setCamLabel('— select camera —');
     const deploySel = document.getElementById('deploy-camera');
     deploySel.innerHTML = '<option value="">Same as selected camera</option>';
     cameras.forEach(c => {
       const o = document.createElement('option');
-      o.value = c.id;
-      o.textContent = c.name || c.id;
+      o.value = c.id; o.textContent = c.name || c.id;
       deploySel.appendChild(o);
     });
   } catch (e) {
-    sel.innerHTML = `<option value="">Error: ${e.message}</option>`;
+    _setCamLabel(`Error: ${e.message}`);
   }
 }
 
@@ -427,24 +474,6 @@ function _playbackAdvance(gen) {
     });
 }
 
-function onCameraChange() {
-  const id = document.getElementById('camera-select').value;
-  state.selectedCamera = id || null;
-  if (id) {
-    document.getElementById('stream-img').alt = '';
-    startStream();
-    if (_videoMode === 'recorded') loadBookmarks();
-  } else {
-    stopStream();
-    const img = document.getElementById('stream-img');
-    img.removeAttribute('src');
-    img.style.display = 'none';
-    document.getElementById('stream-hint').style.display = '';
-    document.getElementById('bookmark-select').innerHTML = '<option value="">— select a bookmark —</option>';
-  }
-  updateCaptureButton();
-  updateDeployBtn();
-}
 
 function updateDeployBtn() {
   const cameraId = document.getElementById('deploy-camera').value || state.selectedCamera;

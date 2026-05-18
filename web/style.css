@@ -166,6 +166,31 @@ select:focus, input:focus { border-color: var(--accent); }
 .field-row { display: flex; gap: 0.5rem; align-items: center; }
 .field-row select { flex: 1; }
 
+/* ── Custom camera dropdown (replaces <select> for CEF compat) ───────────────── */
+.cam-select-wrap { position: relative; flex: 1; }
+.cam-select-btn {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); border-radius: 4px; padding: 0.4rem 0.6rem;
+  font-size: 0.85rem; cursor: pointer; text-align: left;
+  transition: border-color 0.15s; outline: none;
+}
+.cam-select-btn:focus, .cam-select-btn.open { border-color: var(--accent); }
+.cam-select-arrow { font-size: 0.7rem; color: var(--muted); margin-left: 0.4rem; flex-shrink: 0; }
+.cam-select-list {
+  display: none; position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+  background: var(--bg-panel, #1e2533); border: 1px solid var(--border);
+  border-radius: 4px; z-index: 200; max-height: 220px; overflow-y: auto;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+.cam-select-list.open { display: block; }
+.cam-select-opt {
+  padding: 0.45rem 0.6rem; font-size: 0.85rem; cursor: pointer;
+  color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cam-select-opt:hover { background: var(--accent); color: #fff; }
+.cam-select-opt.selected { background: rgba(37,99,235,0.25); }
+
 .field-group { display: flex; flex-direction: column; gap: 0.3rem; }
 .field-group label { font-size: 0.75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
