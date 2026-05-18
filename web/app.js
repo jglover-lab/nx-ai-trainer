@@ -82,11 +82,18 @@ function _setCamLabel(text) {
 
 let _deployCamera = null; // tracks selected deploy-camera value
 
+// Timestamp guards prevent CEF's double-fire of click events from instantly
+// re-closing a dropdown that was just opened.
+let _camDropdownOpenTime    = 0;
+let _deployDropdownOpenTime = 0;
+let _methodDropdownOpenTime = 0;
+
 function toggleDeployDropdown() {
   const list = document.getElementById('deploy-camera-list');
   if (list.classList.contains('open')) {
-    closeDeployDropdown();
+    if (Date.now() - _deployDropdownOpenTime > 300) closeDeployDropdown();
   } else {
+    _deployDropdownOpenTime = Date.now();
     list.classList.add('open');
     document.getElementById('deploy-camera-btn').classList.add('open');
     document.getElementById('deploy-dropdown-overlay').style.display = 'block';
@@ -111,8 +118,9 @@ function _selectDeployCamera(id, name) {
 function toggleCamDropdown() {
   const list = document.getElementById('camera-select-list');
   if (list.classList.contains('open')) {
-    closeCamDropdown();
+    if (Date.now() - _camDropdownOpenTime > 300) closeCamDropdown();
   } else {
+    _camDropdownOpenTime = Date.now();
     list.classList.add('open');
     document.getElementById('camera-select-btn').classList.add('open');
     document.getElementById('cam-dropdown-overlay').style.display = 'block';
@@ -670,7 +678,13 @@ async function captureFrame() {
 
     const result = await apiFetch('/api/capture', { method: 'POST', body: JSON.stringify(body) });
     cls.count = result.count;
-    if (result.thumb) cls.thumbs.push(`data:image/jpeg;base64,${result.thumb}`);
+    const gotThumb = !!(result && result.thumb);
+    if (gotThumb) cls.thumbs.push(`data:image/jpeg;base64,${result.thumb}`);
+    const statusEl = document.getElementById('capture-status');
+    if (statusEl) {
+      statusEl.textContent = gotThumb ? `✓ frame ${result.count}` : `⚠ frame ${result.count} — no preview`;
+      statusEl.style.color = gotThumb ? 'var(--green)' : 'var(--yellow)';
+    }
 
     state.trainedWithCurrentData = false;
     state.modelReady = false;
@@ -700,8 +714,9 @@ const _methodLabels = { basic: 'Basic — Scene Change', cnn: 'CNN — Small Neu
 function toggleMethodDropdown() {
   const list = document.getElementById('method-select-list');
   if (list.classList.contains('open')) {
-    closeMethodDropdown();
+    if (Date.now() - _methodDropdownOpenTime > 300) closeMethodDropdown();
   } else {
+    _methodDropdownOpenTime = Date.now();
     list.classList.add('open');
     document.getElementById('method-select-btn').classList.add('open');
     document.getElementById('method-dropdown-overlay').style.display = 'block';

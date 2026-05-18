@@ -1675,7 +1675,20 @@ def api_capture():
     _training_state["classes"][class_name].append(str(frame_path))
     _training_state["status"] = "idle"  # reset trained status on new capture
 
-    thumb_b64 = base64.b64encode(frame_bytes).decode()
+    # Scale frame down to a small thumbnail for the response to keep JSON compact
+    # (large base64 payloads can cause silent JSON-parse failures in some CEF builds)
+    thumb_bytes = frame_bytes
+    try:
+        import io
+        from PIL import Image as _PILImg
+        _img = _PILImg.open(io.BytesIO(frame_bytes)).convert("RGB")
+        _img.thumbnail((128, 128))
+        _buf = io.BytesIO()
+        _img.save(_buf, format="JPEG", quality=70)
+        thumb_bytes = _buf.getvalue()
+    except Exception:
+        pass
+    thumb_b64 = base64.b64encode(thumb_bytes).decode()
     return jsonify({"ok": True, "count": len(_training_state["classes"][class_name]), "thumb": thumb_b64})
 
 @app.route("/api/capture/<class_name>", methods=["DELETE"])
