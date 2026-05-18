@@ -167,11 +167,11 @@
 
     <div class="field-group">
       <label>Method</label>
-      <select id="train-method" onchange="onMethodChange()">
-        <option value="basic">Basic — Scene Change</option>
-        <option value="cnn">CNN — Small Neural Net</option>
-        <option value="mobilenet">MobileNetV2 — Transfer Learning</option>
-      </select>
+      <div class="field-row" style="flex-wrap:wrap;gap:0.3rem">
+        <button class="btn-small mode-btn active" id="method-basic"     onclick="setMethod('basic')"     >Basic</button>
+        <button class="btn-small mode-btn"        id="method-cnn"       onclick="setMethod('cnn')"       >CNN</button>
+        <button class="btn-small mode-btn"        id="method-mobilenet" onclick="setMethod('mobilenet')" >MobileNetV2</button>
+      </div>
     </div>
     <div class="train-info" id="method-hint" style="font-size:0.75rem;margin-top:-0.25rem"></div>
 

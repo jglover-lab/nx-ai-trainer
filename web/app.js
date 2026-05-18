@@ -398,7 +398,7 @@ function onRecordedTimeInput() {
 
 // Show server error text inside stream box if a live frame fails to load
 document.addEventListener('DOMContentLoaded', () => {
-  onMethodChange();
+  setMethod('basic');
   document.getElementById('stream-img').addEventListener('error', async () => {
     // Only handle live-mode errors here; recorded errors are handled in refreshFrame()
     if (_videoMode !== 'live') return;
@@ -694,12 +694,19 @@ const METHOD_HINTS = {
   mobilenet: 'Slowest (~1-2 min). Fine-tunes MobileNetV2 pretrained on ImageNet. Best accuracy for subtle differences. Requires: torch torchvision.',
 };
 
-function onMethodChange() {
-  const m = document.getElementById('train-method').value;
+let _trainMethod = 'basic';
+
+function setMethod(m) {
+  _trainMethod = m;
+  ['basic', 'cnn', 'mobilenet'].forEach(k => {
+    document.getElementById(`method-${k}`).classList.toggle('active', k === m);
+  });
   document.getElementById('method-hint').textContent = METHOD_HINTS[m] || '';
   state.trainedWithCurrentData = false;
   checkTrainReady();
 }
+
+function onMethodChange() { setMethod(_trainMethod); }
 
 function checkTrainReady() {
   const minSamples = 5;
@@ -728,7 +735,7 @@ function checkTrainReady() {
 async function trainModel() {
   state.training = true;
   const btn = document.getElementById('btn-train');
-  const trainMethod = document.getElementById('train-method').value;
+  const trainMethod = _trainMethod;
   const slowMethod = trainMethod === 'cnn' || trainMethod === 'mobilenet';
   btn.disabled = true;
   btn.textContent = 'Training...';
