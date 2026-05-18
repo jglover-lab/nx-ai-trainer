@@ -64,6 +64,7 @@
 
 <!-- Invisible overlay to catch outside-clicks for custom dropdowns -->
 <div id="cam-dropdown-overlay" onclick="closeCamDropdown()" style="display:none;position:fixed;inset:0;z-index:199"></div>
+<div id="deploy-dropdown-overlay" onclick="closeDeployDropdown()" style="display:none;position:fixed;inset:0;z-index:199"></div>
 
 <!-- Main layout: 3 columns -->
 <main>
@@ -196,9 +197,13 @@
 
     <div class="field-group">
       <label>Assign to camera</label>
-      <select id="deploy-camera" onchange="updateDeployBtn()">
-        <option value="">Same as selected camera</option>
-      </select>
+      <div class="cam-select-wrap" id="deploy-camera-wrap">
+        <button type="button" class="cam-select-btn" id="deploy-camera-btn" onclick="toggleDeployDropdown()">
+          <span id="deploy-camera-label">Same as selected camera</span>
+          <span class="cam-select-arrow">▾</span>
+        </button>
+        <div class="cam-select-list" id="deploy-camera-list"></div>
+      </div>
     </div>
 
     <div class="btn-row">

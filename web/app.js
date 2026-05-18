@@ -80,6 +80,34 @@ function _setCamLabel(text) {
   document.getElementById('camera-select-label').textContent = text;
 }
 
+let _deployCamera = null; // tracks selected deploy-camera value
+
+function toggleDeployDropdown() {
+  const list = document.getElementById('deploy-camera-list');
+  if (list.classList.contains('open')) {
+    closeDeployDropdown();
+  } else {
+    list.classList.add('open');
+    document.getElementById('deploy-camera-btn').classList.add('open');
+    document.getElementById('deploy-dropdown-overlay').style.display = 'block';
+  }
+}
+
+function closeDeployDropdown() {
+  document.getElementById('deploy-camera-list').classList.remove('open');
+  document.getElementById('deploy-camera-btn').classList.remove('open');
+  document.getElementById('deploy-dropdown-overlay').style.display = 'none';
+}
+
+function _selectDeployCamera(id, name) {
+  _deployCamera = id || null;
+  document.getElementById('deploy-camera-label').textContent = name;
+  document.getElementById('deploy-camera-list').querySelectorAll('.cam-select-opt')
+    .forEach(o => o.classList.toggle('selected', o.dataset.id === id));
+  closeDeployDropdown();
+  updateDeployBtn();
+}
+
 function toggleCamDropdown() {
   const list = document.getElementById('camera-select-list');
   if (list.classList.contains('open')) {
@@ -140,12 +168,20 @@ async function loadCameras() {
       list.appendChild(o);
     });
     _setCamLabel('— select camera —');
-    const deploySel = document.getElementById('deploy-camera');
-    deploySel.innerHTML = '<option value="">Same as selected camera</option>';
+    const deployList = document.getElementById('deploy-camera-list');
+    deployList.innerHTML = '';
+    const dp = document.createElement('div');
+    dp.className = 'cam-select-opt';
+    dp.textContent = 'Same as selected camera';
+    dp.onclick = () => _selectDeployCamera('', 'Same as selected camera');
+    deployList.appendChild(dp);
     cameras.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.id; o.textContent = c.name || c.id;
-      deploySel.appendChild(o);
+      const o = document.createElement('div');
+      o.className = 'cam-select-opt';
+      o.dataset.id = c.id;
+      o.textContent = c.name || c.id;
+      o.onclick = () => _selectDeployCamera(c.id, c.name || c.id);
+      deployList.appendChild(o);
     });
   } catch (e) {
     _setCamLabel(`Error: ${e.message}`);
@@ -479,7 +515,7 @@ function _playbackAdvance(gen) {
 
 
 function updateDeployBtn() {
-  const cameraId = document.getElementById('deploy-camera').value || state.selectedCamera;
+  const cameraId = _deployCamera || state.selectedCamera;
   const ready = state.modelReady && !state.deploying && !!cameraId;
   document.getElementById('btn-deploy').disabled = !ready;
   document.getElementById('btn-download').disabled = !state.modelReady;
@@ -759,7 +795,7 @@ async function deployModel() {
   showDeployStatus('info', 'Uploading model to Nx AI Manager…');
 
   const modelName = document.getElementById('model-name').value.trim() || 'nx-ai-trainer model';
-  const cameraId = document.getElementById('deploy-camera').value || state.selectedCamera;
+  const cameraId = _deployCamera || state.selectedCamera;
 
   if (!cameraId) {
     showDeployStatus('error', '✗ No camera selected');
@@ -839,7 +875,7 @@ function downloadModel() {
 
 async function manualAssign() {
   const uuid = (document.getElementById('manual-uuid').value || '').trim();
-  const cameraId = document.getElementById('deploy-camera').value || state.selectedCamera;
+  const cameraId = _deployCamera || state.selectedCamera;
   const statusEl = document.getElementById('assign-status');
 
   if (!uuid) {
@@ -907,7 +943,7 @@ async function loadModels() {
       container.innerHTML = '<span style="color:var(--muted)">No models yet.</span>';
       return;
     }
-    const hasCam = !!(document.getElementById('deploy-camera').value || state.selectedCamera);
+    const hasCam = !!(_deployCamera || state.selectedCamera);
     container.innerHTML = models.map(m => {
       const uuid = m.UUID || m.uuid || '';
       const name = m.Name || m.name || 'Unnamed';
@@ -934,7 +970,7 @@ function useModel(uuid) {
 }
 
 async function assignModelToCamera(uuid) {
-  const cameraId = document.getElementById('deploy-camera').value || state.selectedCamera;
+  const cameraId = _deployCamera || state.selectedCamera;
   if (!cameraId) return;
   const statusEl = document.getElementById('assign-status');
   statusEl.style.display = '';
