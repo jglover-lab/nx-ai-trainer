@@ -80,17 +80,19 @@ function _setCamLabel(text) {
   document.getElementById('camera-select-label').textContent = text;
 }
 
-function toggleCamDropdown(e) {
-  e.stopPropagation();
+function toggleCamDropdown() {
   const list = document.getElementById('camera-select-list');
   const btn  = document.getElementById('camera-select-btn');
   const open = list.classList.toggle('open');
   btn.classList.toggle('open', open);
 }
 
-document.addEventListener('click', () => {
-  document.getElementById('camera-select-list').classList.remove('open');
-  document.getElementById('camera-select-btn').classList.remove('open');
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('camera-select-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('camera-select-list').classList.remove('open');
+    document.getElementById('camera-select-btn').classList.remove('open');
+  }
 });
 
 function _selectCamera(id, name) {
@@ -126,14 +128,14 @@ async function loadCameras() {
     const placeholder = document.createElement('div');
     placeholder.className = 'cam-select-opt';
     placeholder.textContent = '— select camera —';
-    placeholder.onclick = (e) => { e.stopPropagation(); _selectCamera('', '— select camera —'); };
+    placeholder.onclick = () => { _selectCamera('', '— select camera —'); };
     list.appendChild(placeholder);
     cameras.forEach(c => {
       const o = document.createElement('div');
       o.className = 'cam-select-opt';
       o.dataset.id = c.id;
       o.textContent = c.name || c.id;
-      o.onclick = (e) => { e.stopPropagation(); _selectCamera(c.id, c.name || c.id); };
+      o.onclick = () => { _selectCamera(c.id, c.name || c.id); };
       list.appendChild(o);
     });
     _setCamLabel('— select camera —');
