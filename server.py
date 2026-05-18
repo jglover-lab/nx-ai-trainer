@@ -52,6 +52,14 @@ NX_AI_MANAGER_ENGINE_NAME = "NX AI Manager"
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="/static")
 
+@app.after_request
+def _no_cache_static(response):
+    if request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # ── Config ─────────────────────────────────────────────────────────────────────
 def load_config():
     with open(CONFIG_FILE) as f:
