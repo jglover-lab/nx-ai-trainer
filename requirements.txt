@@ -1,0 +1,14 @@
+flask>=3.0
+requests>=2.31
+# Recorded video frame extraction (RTSP + H.264 decode)
+av>=12.0
+# Training dependencies (required for /api/train)
+scikit-learn>=1.3
+scikit-image>=0.21
+skl2onnx>=1.16
+onnx>=1.14
+numpy>=1.24
+Pillow>=10.0
+# Optional: CNN and MobileNetV2 training methods only
+# CPU:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# GPU:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121

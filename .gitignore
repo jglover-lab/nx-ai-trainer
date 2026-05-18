@@ -1,0 +1,36 @@
+# Secrets / tokens
+.tokens.json
+config.json
+
+# Training data and models
+captures/
+*.onnx
+.model_meta.json
+
+# Debug / dev scripts
+query_nx_150.py
+
+# Old installer artifacts
+installer/windows/AiTrainerWindows.zip
+installer/windows/install.bat
+installer/windows/write_token.ps1
+installer/linux/AiTrainerLinux.zip
+installer/linux/HowToInstall.txt
+installer/windows/HowToInstall.txt
+
+# Binary (users download from nssm.cc)
+installer/windows/nssm.exe
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+service.log

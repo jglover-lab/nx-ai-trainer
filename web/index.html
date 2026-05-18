@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nx-ai-trainer</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <span class="logo-icon">⬡</span>
+    <span class="logo-text">nx-ai-trainer</span>
+  </div>
+  <div class="status-bar">
+    <div class="status-item" id="status-nx">
+      <span class="dot"></span> Nx <span class="status-label">checking...</span>
+    </div>
+    <div class="status-item" id="status-sclbl">
+      <span class="dot"></span> <span id="sclbl-user">AI Manager</span> <span class="status-label">not signed in</span>
+    </div>
+    <button class="btn-small" id="btn-login" onclick="signIn()">Sign In</button>
+    <button class="btn-small" id="btn-logout" onclick="signOut()" style="display:none">Sign Out</button>
+    <button class="btn-small" onclick="resetAll()" title="Clear all training data">↺ Reset</button>
+    <button class="btn-small" onclick="openSettings()" title="Nx server settings">⚙</button>
+  </div>
+</header>
+
+<!-- Settings modal -->
+<div id="settings-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;width:360px;max-width:95vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <span style="font-weight:600;font-size:0.95rem">Nx Server Settings</span>
+      <button class="btn-small" onclick="closeSettings()">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.65rem">
+      <div class="field-group">
+        <label>Host</label>
+        <input type="text" id="cfg-host" placeholder="localhost">
+      </div>
+      <div class="field-group">
+        <label>Port</label>
+        <input type="text" id="cfg-port" placeholder="7001">
+      </div>
+      <div class="field-group">
+        <label>Username</label>
+        <input type="text" id="cfg-user" placeholder="admin">
+      </div>
+      <div class="field-group">
+        <label>Password</label>
+        <input type="password" id="cfg-pass" placeholder="••••••••">
+      </div>
+
+      <div id="cfg-status" style="font-size:0.75rem;min-height:1.2em"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" style="flex:1" onclick="saveSettings()">Save</button>
+        <button class="btn" onclick="testConnection()">Test</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main layout: 3 columns -->
+<main>
+
+  <!-- Column 1: Camera + Stream -->
+  <section class="panel" id="panel-camera">
+    <h2><span class="step">1</span> Camera</h2>
+
+    <div class="field-row">
+      <select id="camera-select" onchange="onCameraChange()">
+        <option value="">Loading cameras...</option>
+      </select>
+      <button class="btn-small" onclick="loadCameras()" title="Refresh camera list">↻</button>
+    </div>
+
+    <div class="field-row" style="margin-bottom:0.25rem">
+      <label style="font-size:0.8rem;color:var(--muted);margin-right:0.5rem">Mode:</label>
+      <button class="btn-small mode-btn active" id="mode-live" onclick="setMode('live')">Live</button>
+      <button class="btn-small mode-btn" id="mode-recorded" onclick="setMode('recorded')">Recorded</button>
+      <button class="btn-small mode-btn" id="mode-bookmark" onclick="setMode('bookmark')">Bookmarks</button>
+      <span style="margin-left:0.75rem;font-size:0.8rem;color:var(--muted)">Res:</span>
+      <button class="btn-small mode-btn" id="stream-lo" onclick="setStream('lo')">Lo</button>
+      <button class="btn-small mode-btn" id="stream-hi" onclick="setStream('hi')">Hi</button>
+    </div>
+
+    <div id="recorded-controls" style="display:none">
+      <div class="field-row">
+        <input type="datetime-local" id="recorded-time" style="flex:1;font-size:0.8rem"
+               onchange="refreshFrame()"
+               oninput="onRecordedTimeInput()"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();refreshFrame();}">
+        <button class="btn-small btn-primary" onclick="refreshFrame()" title="Go to this time">▶</button>
+        <button class="btn-small" onclick="stepTime(-60000)" title="-1 min">«</button>
+        <button class="btn-small" onclick="stepTime(-5000)" title="-5 sec">‹</button>
+        <button class="btn-small" onclick="stepTime(5000)" title="+5 sec">›</button>
+        <button class="btn-small" onclick="stepTime(60000)" title="+1 min">»</button>
+      </div>
+    </div>
+
+    <div id="bookmark-controls" style="display:none">
+      <div class="field-row">
+        <select id="bookmark-select" onchange="onBookmarkChange()" style="flex:1;font-size:0.8rem">
+          <option value="">— select a bookmark —</option>
+        </select>
+        <button class="btn-small" onclick="loadBookmarks()" title="Refresh bookmarks">↻</button>
+      </div>
+    </div>
+
+    <!-- Playback bar — visible in recorded / bookmark modes -->
+    <div id="playback-controls" style="display:none" class="btn-row">
+      <button class="btn-small" id="btn-play" onclick="togglePlayback()">▶ Play</button>
+      <select id="playback-step" title="How much recorded time to advance per frame">
+        <option value="1000">1 s / frame</option>
+        <option value="5000" selected>5 s / frame</option>
+        <option value="30000">30 s / frame</option>
+        <option value="300000">5 min / frame</option>
+      </select>
+    </div>
+
+    <div class="stream-box">
+      <img id="stream-img" alt="" style="display:none;width:100%;height:100%;object-fit:contain">
+      <span id="stream-hint">Select a camera to begin</span>
+      <div id="frame-ts" style="display:none"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-capture"
+        onmousedown="startCaptureHold(event)" onmouseup="stopCaptureHold()" onmouseleave="stopCaptureHold()"
+        ontouchstart="startCaptureHold(event)" ontouchend="stopCaptureHold()"
+        disabled>
+        ● Capture Frame
+      </button>
+    </div>
+
+    <div class="capture-target">
+      Capturing to: <strong id="capture-class-name">—</strong>
+      <div class="class-tabs" id="class-tabs"></div>
+    </div>
+  </section>
+
+  <!-- Column 2: Classes + Training -->
+  <section class="panel" id="panel-classes">
+    <h2><span class="step">2</span> Classes</h2>
+
+    <div id="class-list"></div>
+
+    <div class="add-class-row">
+      <input type="text" id="new-class-input" placeholder="Class name (e.g. Door Open)" maxlength="40"
+             onkeydown="if(event.key==='Enter')addClass()">
+      <button class="btn" onclick="addClass()">+ Add</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.75rem">
+      <h2><span class="step">3</span> Train</h2>
+    </div>
+
+    <div class="field-group">
+      <label>Method</label>
+      <select id="train-method" onchange="onMethodChange()">
+        <option value="basic">Basic — Scene Change</option>
+        <option value="cnn">CNN — Small Neural Net</option>
+        <option value="mobilenet">MobileNetV2 — Transfer Learning</option>
+      </select>
+    </div>
+    <div class="train-info" id="method-hint" style="font-size:0.75rem;margin-top:-0.25rem"></div>
+
+    <div class="train-info" id="train-info">Add at least 2 classes with 5+ frames each.</div>
+    <div class="progress-bar" id="train-progress" style="display:none">
+      <div class="progress-fill" id="train-fill"></div>
+    </div>
+    <button class="btn btn-primary" id="btn-train" onclick="trainModel()" disabled>
+      ▶ Train Model
+    </button>
+    <div id="train-result" class="train-result" style="display:none"></div>
+
+  </section>
+
+  <!-- Column 3: Deploy -->
+  <section class="panel" id="panel-deploy">
+    <h2><span class="step">4</span> Deploy</h2>
+
+    <div class="field-group">
+      <label>Model name</label>
+      <input type="text" id="model-name" placeholder="My Door Detector" value="nx-ai-trainer model">
+    </div>
+
+    <div class="field-group">
+      <label>Assign to camera</label>
+      <select id="deploy-camera" onchange="updateDeployBtn()">
+        <option value="">Same as selected camera</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-deploy" onclick="deployModel()" disabled>
+        ↑ Upload &amp; Assign
+      </button>
+      <button class="btn" id="btn-download" onclick="downloadModel()" disabled title="Download ONNX model">
+        ↓ ONNX
+      </button>
+    </div>
+
+    <div id="deploy-status" class="deploy-status" style="display:none"></div>
+
+    <!-- Manual assign (paste UUID from Nx AI Manager) -->
+    <div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.75rem">
+      <div style="font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:0.4rem">Manual Assign</div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:0.4rem">Already uploaded to Nx AI Manager? Paste the model UUID to assign it to the camera.</div>
+      <div class="field-row">
+        <input type="text" id="manual-uuid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="font-family:monospace;font-size:0.75rem">
+        <button class="btn-small btn-primary" onclick="manualAssign()">Assign</button>
+      </div>
+      <div id="assign-status" class="deploy-status" style="display:none;margin-top:0.4rem"></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin-top:0.75rem;padding-top:0.75rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <span style="font-size:0.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Existing Models</span>
+        <button class="btn-small" onclick="loadModels()">↻</button>
+      </div>
+      <div id="models-list" class="models-list">Sign in to Nx AI Manager to view.</div>
+    </div>
+  </section>
+
+</main>
+
+
+<script src="/static/app.js"></script>
+</body>
+</html>
