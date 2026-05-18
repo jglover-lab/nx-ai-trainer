@@ -602,18 +602,7 @@ async function captureFrame() {
 
     const result = await apiFetch('/api/capture', { method: 'POST', body: JSON.stringify(body) });
     cls.count = result.count;
-
-    // Fetch thumbnail from server — reliable regardless of canvas/stream state.
-    try {
-      const tr = await fetch(`/api/frame/${state.selectedCamera}?res=${_streamRes}&_t=${Date.now()}`);
-      if (tr.ok) {
-        const blob = await tr.blob();
-        const dataUrl = await new Promise(res => {
-          const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob);
-        });
-        cls.thumbs.push(dataUrl);
-      }
-    } catch {}
+    if (result.thumb) cls.thumbs.push(`data:image/jpeg;base64,${result.thumb}`);
 
     state.trainedWithCurrentData = false;
     state.modelReady = false;

@@ -1667,7 +1667,8 @@ def api_capture():
     _training_state["classes"][class_name].append(str(frame_path))
     _training_state["status"] = "idle"  # reset trained status on new capture
 
-    return jsonify({"ok": True, "count": len(_training_state["classes"][class_name])})
+    thumb_b64 = base64.b64encode(frame_bytes).decode()
+    return jsonify({"ok": True, "count": len(_training_state["classes"][class_name]), "thumb": thumb_b64})
 
 @app.route("/api/capture/<class_name>", methods=["DELETE"])
 def api_delete_class(class_name):
