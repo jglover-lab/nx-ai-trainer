@@ -108,6 +108,7 @@ let _liveActive      = false;
 let _videoMode       = 'live';   // 'live' | 'recorded' | 'bookmark'
 let _streamRes       = 'lo';     // 'lo' | 'hi'
 let _recordedBlobUrl = null;     // current blob URL for recorded frame (revoked on next fetch)
+let _lastLiveImg     = null;     // last fully-loaded live frame Image (for thumbnail extraction)
 let _playbackActive  = false;    // true while recorded/bookmark playback is running
 let _playbackPosMs   = null;     // current playback wall-clock position (ms)
 let _playbackGen     = 0;        // incremented on each startPlayback(); stale chains check this
@@ -279,6 +280,7 @@ function _chainLoad() {
   const t0 = Date.now();
   tmp.onload = () => {
     if (!_liveActive) return;
+    _lastLiveImg = tmp;
     const img = document.getElementById('stream-img');
     img.src = tmp.src;
     img.style.opacity = '1';
@@ -570,13 +572,14 @@ async function captureFrame() {
     // the already-displayed blob URL for the local thumbnail.
     let frame_b64 = null;
     let thumbDataURL = null;
-    const _img = document.getElementById('stream-img');
-    if (_img.complete && _img.naturalWidth > 0) {
+    // In live mode use _lastLiveImg (guaranteed complete); in other modes use stream-img.
+    const srcImg = (_videoMode === 'live' && _lastLiveImg) ? _lastLiveImg : document.getElementById('stream-img');
+    if (srcImg.complete && srcImg.naturalWidth > 0) {
       try {
         const canvas = document.createElement('canvas');
-        canvas.width  = _img.naturalWidth;
-        canvas.height = _img.naturalHeight;
-        canvas.getContext('2d').drawImage(_img, 0, 0);
+        canvas.width  = srcImg.naturalWidth;
+        canvas.height = srcImg.naturalHeight;
+        canvas.getContext('2d').drawImage(srcImg, 0, 0);
         thumbDataURL = canvas.toDataURL('image/jpeg', 0.9);
         if (_videoMode === 'live') {
           frame_b64 = thumbDataURL.split(',')[1]; // skip server round-trip in live mode
@@ -602,20 +605,7 @@ async function captureFrame() {
 
     const result = await apiFetch('/api/capture', { method: 'POST', body: JSON.stringify(body) });
     cls.count = result.count;
-    if (thumbDataURL) {
-      cls.thumbs.push(thumbDataURL);
-    } else {
-      // Stream image wasn't ready at capture time — fetch current frame from server as fallback thumbnail
-      try {
-        const resp = await fetch(`/api/frame/${encodeURIComponent(state.selectedCamera)}?res=${_streamRes}`);
-        if (resp.ok) {
-          const blob = await resp.blob();
-          const reader = new FileReader();
-          reader.onload = () => { cls.thumbs.push(reader.result); renderClasses(); };
-          reader.readAsDataURL(blob);
-        }
-      } catch {}
-    }
+    if (thumbDataURL) cls.thumbs.push(thumbDataURL);
 
     state.trainedWithCurrentData = false;
     state.modelReady = false;
