@@ -82,25 +82,26 @@ function _setCamLabel(text) {
 
 function toggleCamDropdown() {
   const list = document.getElementById('camera-select-list');
-  const btn  = document.getElementById('camera-select-btn');
-  const open = list.classList.toggle('open');
-  btn.classList.toggle('open', open);
+  if (list.classList.contains('open')) {
+    closeCamDropdown();
+  } else {
+    list.classList.add('open');
+    document.getElementById('camera-select-btn').classList.add('open');
+    document.getElementById('cam-dropdown-overlay').style.display = 'block';
+  }
 }
 
-document.addEventListener('click', (e) => {
-  const wrap = document.getElementById('camera-select-wrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('camera-select-list').classList.remove('open');
-    document.getElementById('camera-select-btn').classList.remove('open');
-  }
-});
+function closeCamDropdown() {
+  document.getElementById('camera-select-list').classList.remove('open');
+  document.getElementById('camera-select-btn').classList.remove('open');
+  document.getElementById('cam-dropdown-overlay').style.display = 'none';
+}
 
 function _selectCamera(id, name) {
   document.getElementById('camera-select-list').querySelectorAll('.cam-select-opt')
     .forEach(o => o.classList.toggle('selected', o.dataset.id === id));
   _setCamLabel(name || '— select camera —');
-  document.getElementById('camera-select-list').classList.remove('open');
-  document.getElementById('camera-select-btn').classList.remove('open');
+  closeCamDropdown();
   state.selectedCamera = id || null;
   if (id) {
     document.getElementById('stream-img').alt = '';
