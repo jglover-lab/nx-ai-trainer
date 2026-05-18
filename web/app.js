@@ -602,7 +602,20 @@ async function captureFrame() {
 
     const result = await apiFetch('/api/capture', { method: 'POST', body: JSON.stringify(body) });
     cls.count = result.count;
-    if (thumbDataURL) cls.thumbs.push(thumbDataURL);
+    if (thumbDataURL) {
+      cls.thumbs.push(thumbDataURL);
+    } else {
+      // Stream image wasn't ready at capture time — fetch current frame from server as fallback thumbnail
+      try {
+        const resp = await fetch(`/api/frame/${encodeURIComponent(state.selectedCamera)}?res=${_streamRes}`);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const reader = new FileReader();
+          reader.onload = () => { cls.thumbs.push(reader.result); renderClasses(); };
+          reader.readAsDataURL(blob);
+        }
+      } catch {}
+    }
 
     state.trainedWithCurrentData = false;
     state.modelReady = false;

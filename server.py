@@ -2514,14 +2514,39 @@ def api_deploy():
         _deploy_state["detail"] = f"Upload failed (HTTP {last_status})"
         return jsonify({"error": f"Upload failed (HTTP {last_status}) — check server log for details"}), 500
 
-    # Step 1b: PATCH Catalogues so the model appears in rpc/pipelines/available.
-    # NX AI Manager validates selectedPipeline against that list — the UUID must be there.
-    # Use nxcdb auth (portal format) — Bearer auth returns 404 on this endpoint.
+    # Step 1b: Add model to catalogue so it appears in rpc/pipelines/available.
+    # Use nxcdb auth (portal format).
     tokens_now2 = _auto_refresh_tokens()
     meta_tok2 = tokens_now2.get("meta_token") or tokens_now2.get("refresh_token") or ""
     if meta_tok2 and not meta_tok2.startswith("nxcdb-"):
         meta_tok2 = f"nxcdb-{meta_tok2}"
     cat_auth2 = meta_tok2 or user_auth_headers.get("Authorization", "")
+
+    # Discover available catalogues so we can find the right UUID to register under.
+    cat_uuids = []
+    try:
+        r_cats = requests.get(f"{SCAILABLE_CPT}/catalogues",
+                              headers={"Authorization": cat_auth2}, timeout=15)
+        print(f"[deploy] GET /catalogues → {r_cats.status_code}: {r_cats.text[:600]}")
+        sys.stdout.flush()
+        if r_cats.ok:
+            cats_raw = r_cats.json()
+            if not isinstance(cats_raw, list):
+                cats_raw = cats_raw.get("catalogues") or cats_raw.get("data") or []
+            for c in cats_raw:
+                uid = c.get("UUID") or c.get("uuid") or ""
+                name = c.get("Name") or c.get("name") or ""
+                if uid:
+                    cat_uuids.append((uid, name))
+                    print(f"[deploy]   catalogue {uid!r} name={name!r}")
+            sys.stdout.flush()
+    except Exception as e:
+        print(f"[deploy] GET /catalogues error: {e}")
+        sys.stdout.flush()
+
+    # Try PATCH /functions/{uuid} with Catalogues as UUID list, then string list.
+    # Also try POST /catalogues/{cat_uuid}/functions for each discovered catalogue.
+    cat_registered = False
     for cat_method in ("PATCH", "PUT"):
         try:
             fn = requests.patch if cat_method == "PATCH" else requests.put
@@ -2534,10 +2559,37 @@ def api_deploy():
             print(f"[deploy] {cat_method} /functions/{model_uuid} Catalogues → {r_cat.status_code}: {r_cat.text[:200]}")
             sys.stdout.flush()
             if r_cat.ok:
+                cat_registered = True
                 break
         except Exception as e:
             print(f"[deploy] catalogue {cat_method} error: {e}")
             sys.stdout.flush()
+
+    # Try POST /catalogues/{uuid}/functions for each discovered catalogue.
+    if not cat_registered:
+        for cat_uuid, cat_name in cat_uuids:
+            for post_body in [
+                {"FunctionUUID": model_uuid},
+                {"UUID": model_uuid},
+                {"functions": [model_uuid]},
+            ]:
+                try:
+                    r_cp = requests.post(
+                        f"{SCAILABLE_CPT}/catalogues/{cat_uuid}/functions",
+                        headers={"Authorization": cat_auth2, "Content-Type": "application/json"},
+                        json=post_body,
+                        timeout=15,
+                    )
+                    print(f"[deploy] POST /catalogues/{cat_uuid[:8]}({cat_name}) /functions {post_body} → {r_cp.status_code}: {r_cp.text[:200]}")
+                    sys.stdout.flush()
+                    if r_cp.ok:
+                        cat_registered = True
+                        break
+                except Exception as e:
+                    print(f"[deploy] POST /catalogues/{cat_uuid[:8]}/functions error: {e}")
+                    sys.stdout.flush()
+            if cat_registered:
+                break
 
     # Step 2: Wait for model to finish processing before assigning.
     # Scailable compiles ONNX asynchronously; assigning a "processing" model is a no-op.
@@ -2586,13 +2638,10 @@ def api_deploy():
             print(f"[deploy] poll ({attempt+1}): outer={outer_status!r} code={code_status!r} "
                   f"cdn_uri={cdn_display}")
             sys.stdout.flush()
-            # Ready when status is terminal AND compiled binary exists
-            if status_val not in _STILL_PROCESSING and cdn_uri:
+            # Proceed as soon as status is terminal — don't block on cdn_uri since
+            # some model types never populate it via this auth path.
+            if status_val not in _STILL_PROCESSING:
                 _deploy_state["detail"] = f"Model {status_val} — assigning to camera…"
-                break
-            # If status is a failure state, stop regardless of cdn_uri
-            if status_val in ("failed", "error", "rejected"):
-                _deploy_state["detail"] = f"Model compilation {status_val}"
                 break
         except Exception as e:
             _deploy_state["last_poll"] = f"error: {e}"
@@ -2696,14 +2745,18 @@ def api_deploy():
                 sys.stdout.flush()
 
         assign_ok = False
+        last_was_422 = False
         # Retry up to 4 times (0, 15, 30, 45 s) — covers NX AI Manager re-registration lag
         for attempt in range(4):
             if attempt > 0:
+                if not last_was_422:
+                    break  # only retry on 422 "No devices applicable"
                 wait = attempt * 15
                 _deploy_state["detail"] = f"Device not yet registered — retrying in {wait}s…"
                 print(f"[deploy] DEV assign attempt {attempt+1}: waiting {wait}s for device registration…")
                 sys.stdout.flush()
                 _time.sleep(wait)
+            last_was_422 = False
             for auth_label, hdrs in dev_headers_to_try:
                 try:
                     r_assign = requests.put(
@@ -2717,15 +2770,12 @@ def api_deploy():
                     if r_assign.ok:
                         assign_ok = True
                         break
-                    if r_assign.status_code not in (401, 403, 422):
-                        break  # unexpected error — stop retrying
+                    if r_assign.status_code == 422 and "applicable" in r_assign.text:
+                        last_was_422 = True
                 except Exception as e:
                     print(f"[deploy] Scailable DEV ({auth_label}) error: {e}")
                     sys.stdout.flush()
             if assign_ok:
-                break
-            # 422 "No devices are applicable" — retry; anything else — stop
-            if "applicable" not in (r_assign.text if 'r_assign' in dir() else ""):
                 break
 
     # Step 3b: Verify state — no settings PUTs.  Any external settings PUT causes NX AI
