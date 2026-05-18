@@ -695,12 +695,31 @@ const METHOD_HINTS = {
 };
 
 let _trainMethod = 'basic';
+const _methodLabels = { basic: 'Basic — Scene Change', cnn: 'CNN — Small Neural Net', mobilenet: 'MobileNetV2 — Transfer Learning' };
+
+function toggleMethodDropdown() {
+  const list = document.getElementById('method-select-list');
+  if (list.classList.contains('open')) {
+    closeMethodDropdown();
+  } else {
+    list.classList.add('open');
+    document.getElementById('method-select-btn').classList.add('open');
+    document.getElementById('method-dropdown-overlay').style.display = 'block';
+  }
+}
+
+function closeMethodDropdown() {
+  document.getElementById('method-select-list').classList.remove('open');
+  document.getElementById('method-select-btn').classList.remove('open');
+  document.getElementById('method-dropdown-overlay').style.display = 'none';
+}
 
 function setMethod(m) {
   _trainMethod = m;
-  ['basic', 'cnn', 'mobilenet'].forEach(k => {
-    document.getElementById(`method-${k}`).classList.toggle('active', k === m);
-  });
+  document.getElementById('method-select-label').textContent = _methodLabels[m] || m;
+  document.getElementById('method-select-list').querySelectorAll('.cam-select-opt')
+    .forEach((o, i) => o.classList.toggle('selected', ['basic','cnn','mobilenet'][i] === m));
+  closeMethodDropdown();
   document.getElementById('method-hint').textContent = METHOD_HINTS[m] || '';
   state.trainedWithCurrentData = false;
   checkTrainReady();

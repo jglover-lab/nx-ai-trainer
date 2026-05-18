@@ -65,6 +65,7 @@
 <!-- Invisible overlay to catch outside-clicks for custom dropdowns -->
 <div id="cam-dropdown-overlay" onclick="closeCamDropdown()" style="display:none;position:fixed;inset:0;z-index:199"></div>
 <div id="deploy-dropdown-overlay" onclick="closeDeployDropdown()" style="display:none;position:fixed;inset:0;z-index:199"></div>
+<div id="method-dropdown-overlay" onclick="closeMethodDropdown()" style="display:none;position:fixed;inset:0;z-index:199"></div>
 
 <!-- Main layout: 3 columns -->
 <main>
@@ -167,10 +168,16 @@
 
     <div class="field-group">
       <label>Method</label>
-      <div class="field-row" style="flex-wrap:wrap;gap:0.3rem">
-        <button class="btn-small mode-btn active" id="method-basic"     onclick="setMethod('basic')"     >Basic</button>
-        <button class="btn-small mode-btn"        id="method-cnn"       onclick="setMethod('cnn')"       >CNN</button>
-        <button class="btn-small mode-btn"        id="method-mobilenet" onclick="setMethod('mobilenet')" >MobileNetV2</button>
+      <div class="cam-select-wrap" id="method-select-wrap">
+        <button type="button" class="cam-select-btn" id="method-select-btn" onclick="toggleMethodDropdown()">
+          <span id="method-select-label">Basic — Scene Change</span>
+          <span class="cam-select-arrow">▾</span>
+        </button>
+        <div class="cam-select-list" id="method-select-list">
+          <div class="cam-select-opt selected" onclick="setMethod('basic')">Basic — Scene Change</div>
+          <div class="cam-select-opt" onclick="setMethod('cnn')">CNN — Small Neural Net</div>
+          <div class="cam-select-opt" onclick="setMethod('mobilenet')">MobileNetV2 — Transfer Learning</div>
+        </div>
       </div>
     </div>
     <div class="train-info" id="method-hint" style="font-size:0.75rem;margin-top:-0.25rem"></div>
