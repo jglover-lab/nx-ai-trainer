@@ -188,9 +188,10 @@ select:focus, input:focus { border-color: var(--accent); }
 .cam-select-opt {
   padding: 0.45rem 0.6rem; font-size: 0.85rem; cursor: pointer;
   color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: var(--bg-panel, #1e2533);
 }
 .cam-select-opt:hover { background: var(--accent); color: #fff; }
-.cam-select-opt.selected { background: rgba(37,99,235,0.25); }
+.cam-select-opt.selected { background: rgba(37,99,235,0.2); }
 
 .field-group { display: flex; flex-direction: column; gap: 0.3rem; }
 .field-group label { font-size: 0.75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
