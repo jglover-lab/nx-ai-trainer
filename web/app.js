@@ -571,19 +571,16 @@ async function captureFrame() {
     // + pos so the server fetches the exact historical timestamp — but we use
     // the already-displayed blob URL for the local thumbnail.
     let frame_b64 = null;
-    let thumbDataURL = null;
-    // In live mode use _lastLiveImg (guaranteed complete); in other modes use stream-img.
+    // In live mode try canvas extraction to avoid a server round-trip for the frame payload.
+    // Use _lastLiveImg (guaranteed complete) rather than stream-img (mid-swap is incomplete).
     const srcImg = (_videoMode === 'live' && _lastLiveImg) ? _lastLiveImg : document.getElementById('stream-img');
-    if (srcImg.complete && srcImg.naturalWidth > 0) {
+    if (_videoMode === 'live' && srcImg.complete && srcImg.naturalWidth > 0) {
       try {
         const canvas = document.createElement('canvas');
         canvas.width  = srcImg.naturalWidth;
         canvas.height = srcImg.naturalHeight;
         canvas.getContext('2d').drawImage(srcImg, 0, 0);
-        thumbDataURL = canvas.toDataURL('image/jpeg', 0.9);
-        if (_videoMode === 'live') {
-          frame_b64 = thumbDataURL.split(',')[1]; // skip server round-trip in live mode
-        }
+        frame_b64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
       } catch {}
     }
 
@@ -605,7 +602,18 @@ async function captureFrame() {
 
     const result = await apiFetch('/api/capture', { method: 'POST', body: JSON.stringify(body) });
     cls.count = result.count;
-    if (thumbDataURL) cls.thumbs.push(thumbDataURL);
+
+    // Fetch thumbnail from server — reliable regardless of canvas/stream state.
+    try {
+      const tr = await fetch(`/api/frame/${state.selectedCamera}?res=${_streamRes}&_t=${Date.now()}`);
+      if (tr.ok) {
+        const blob = await tr.blob();
+        const dataUrl = await new Promise(res => {
+          const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob);
+        });
+        cls.thumbs.push(dataUrl);
+      }
+    } catch {}
 
     state.trainedWithCurrentData = false;
     state.modelReady = false;
