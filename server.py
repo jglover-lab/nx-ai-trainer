@@ -2555,19 +2555,25 @@ def api_deploy():
     # compiled binary may not yet be ready (CDNURI still empty → NX AI Manager can't
     # fetch the model → inference silently produces nothing).
     _STILL_PROCESSING = {"", "new", "processing", "uploading", "queued", "pending"}
+    NIL_UUID_POLL = "00000000-0000-0000-0000-000000000000"
     cdn_uri = ""
-    for attempt in range(72):  # up to ~6 minutes
+    for attempt in range(120):  # up to ~10 minutes
         try:
-            r_poll = requests.get(f"{SCAILABLE_CPT}/functions/{model_uuid}",
+            # Use the list endpoint — GET /functions/{uuid} with nxcdb auth omits the Code
+            # object, so we can't see CDNURI. The list endpoint returns full objects.
+            r_poll = requests.get(
+                f"{SCAILABLE_CPT}/functions?Catalogue={NIL_UUID_POLL}&Customization=metavms",
+                headers=poll_hdrs, timeout=15)
+            _all = r_poll.json() if r_poll.ok else []
+            if not isinstance(_all, list):
+                _all = _all.get("functions") or _all.get("data") or _all.get("items") or []
+            _d = next((m for m in _all if (m.get("UUID") or "").lower() == model_uuid.lower()), {})
+            # Fall back to direct GET if model not in list yet
+            if not _d:
+                r2 = requests.get(f"{SCAILABLE_CPT}/functions/{model_uuid}",
                                   headers=poll_hdrs, timeout=15)
-            if not r_poll.ok:
-                r_poll = requests.get(f"{SCAILABLE_CPT}/functions?Customization=metavms",
-                                      headers=poll_hdrs, timeout=15)
-                _all = r_poll.json() if r_poll.ok else []
-                if not isinstance(_all, list): _all = []
-                _d = next((m for m in _all if (m.get("UUID") or "").lower() == model_uuid.lower()), {})
-            else:
-                _d = r_poll.json()
+                if r2.ok:
+                    _d = r2.json()
             elapsed = (attempt + 1) * 5
             _deploy_state["detail"] = f"Compiling model… ({elapsed}s)"
             code_obj     = _d.get("Code") or {}
@@ -2580,9 +2586,13 @@ def api_deploy():
             print(f"[deploy] poll ({attempt+1}): outer={outer_status!r} code={code_status!r} "
                   f"cdn_uri={cdn_display}")
             sys.stdout.flush()
-            # Ready when outer/code status is terminal (cdn_uri logged for info only)
-            if status_val not in _STILL_PROCESSING:
+            # Ready when status is terminal AND compiled binary exists
+            if status_val not in _STILL_PROCESSING and cdn_uri:
                 _deploy_state["detail"] = f"Model {status_val} — assigning to camera…"
+                break
+            # If status is a failure state, stop regardless of cdn_uri
+            if status_val in ("failed", "error", "rejected"):
+                _deploy_state["detail"] = f"Model compilation {status_val}"
                 break
         except Exception as e:
             _deploy_state["last_poll"] = f"error: {e}"
